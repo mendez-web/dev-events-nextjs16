@@ -6,7 +6,7 @@ import {
   models,
 } from "mongoose";
 
-export interface Event {
+export interface IEvent {
   title: string;
   slug: string;
   description: string;
@@ -25,8 +25,13 @@ export interface Event {
   updatedAt: Date;
 }
 
-type EventDocument = HydratedDocument<Event>;
-type EventModel = Model<Event>;
+export type EventListItem = IEvent & {
+  id?: string;
+  _id?: string;
+};
+
+type EventDocument = HydratedDocument<IEvent>;
+type EventModel = Model<IEvent>;
 
 const isNonEmptyString = (value: string): boolean => value.trim().length > 0;
 
@@ -97,7 +102,7 @@ const normalizeTime = (value: string): string => {
   throw new Error("Event time must use HH:mm or h:mm AM/PM format.");
 };
 
-const eventSchema = new Schema<Event, EventModel>(
+const eventSchema = new Schema<IEvent, EventModel>(
   {
     title: {
       type: String,
@@ -250,6 +255,6 @@ eventSchema.pre("save", function (this: EventDocument) {
 eventSchema.index({ slug: 1 }, { unique: true });
 
 const EventModel =
-  (models.Event as EventModel | undefined) ?? model<Event, EventModel>("Event", eventSchema);
+  (models.Event as EventModel | undefined) ?? model<IEvent, EventModel>("Event", eventSchema);
 
 export default EventModel;
