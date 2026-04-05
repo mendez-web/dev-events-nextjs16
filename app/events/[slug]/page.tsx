@@ -1,16 +1,12 @@
+import { Suspense } from "react";
+
 import BookEvent from "@/components/BookEvent";
+import EventCard from "@/components/EventCard";
+import EventModel, { type EventListItem } from "@/database/event.model";
+import { getSimilarEventsBySlug } from "@/lib/actions/similarEvent.actions";
+import connectToDatabase from "@/lib/mongodb";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-
-import { getSimilarEventsBySlug } from "@/lib/actions/similarEvent.actions";
-import { EventListItem } from "@/database/event.model";
-import EventCard from "@/components/EventCard";
-
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
-
-type EventDetailsResponse = {
-  event?: EventListItem;
-};
 
 const EventDetailItem = ({
   icon,
@@ -47,33 +43,25 @@ const EventAgenda = ({ agendaItems }: { agendaItems: string[] }) => (
   </div>
 );
 
-const EventDetails = async ({
+const EventDetailsContent = async ({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) => {
   const { slug } = await params;
-  if (!BASE_URL) {
-    throw new Error("Missing NEXT_PUBLIC_BASE_URL.");
-  }
-
-  const request = await fetch(`${BASE_URL}/api/events/${slug}`);
-
-  if (request.status === 404) {
-    notFound();
-  }
-
-  if (!request.ok) {
-    throw new Error("Failed to fetch event details.");
-  }
-
-  const { event } = (await request.json()) as EventDetailsResponse;
+  await connectToDatabase();
+  const event = JSON.parse(
+    JSON.stringify(await EventModel.findOne({ slug }).lean()),
+  ) as EventListItem | null;
 
   if (!event) {
     notFound();
   }
 
   const {
+    id,
+    _id,
+    slug: eventSlug,
     description,
     image,
     overview,
@@ -86,6 +74,12 @@ const EventDetails = async ({
     tags,
     organizer,
   } = event;
+
+  const eventId = id ?? _id;
+
+  if (!eventId) {
+    throw new Error("Event is missing an id.");
+  }
 
   const bookings = 10;
 
@@ -145,7 +139,7 @@ const EventDetails = async ({
             ) : (
               <p className="text-sm">Be the first to book your spot</p>
             )}
-            <BookEvent />
+            <BookEvent eventId={event._id} slug={eventSlug} />
           </div>
         </aside>
       </div>
@@ -155,7 +149,10 @@ const EventDetails = async ({
         <div className="events">
           {similarEvents.length > 0 &&
             similarEvents.map((similarEvent: EventListItem) => (
-              <EventCard key={similarEvent.id} {...similarEvent} />
+              <EventCard
+                key={similarEvent.id ?? similarEvent._id ?? similarEvent.slug}
+                {...similarEvent}
+              />
             ))}
         </div>
       </div>
@@ -163,4 +160,23 @@ const EventDetails = async ({
   );
 };
 
-export default EventDetails;
+const EventDetailsFallback = () => (
+  <section id="event">
+    <div className="header">
+      <h1>Loading event...</h1>
+      <p className="mt-2">Fetching the latest event details.</p>
+    </div>
+  </section>
+);
+
+const EventDetailsPage = ({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) => (
+  <Suspense fallback={<EventDetailsFallback />}>
+    <EventDetailsContent params={params} />
+  </Suspense>
+);
+
+export default EventDetailsPage;
