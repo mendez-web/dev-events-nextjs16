@@ -2,11 +2,13 @@ import "server-only";
 
 import mongoose, { type Mongoose } from "mongoose";
 
-const MONGODB_URI = process.env.MONGODB_URI;
+const mongodbUri = process.env.MONGODB_URI;
 
-if (!MONGODB_URI) {
+if (!mongodbUri) {
   throw new Error("Missing MONGODB_URI environment variable.");
 }
+
+const MONGODB_URI = mongodbUri;
 
 interface MongooseCache {
   conn: Mongoose | null;
